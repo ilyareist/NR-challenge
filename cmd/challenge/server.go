@@ -46,10 +46,8 @@ func main() {
 	go writeToLogFile(config.LogName())
 
 	go func() {
-		select {
-		case <-terminate:
-			listener.Close()
-		}
+		<-terminate
+		listener.Close()
 	}()
 
 	patternNumbers := regexp.MustCompile(`^[0-9]{9,9}$`)
@@ -144,7 +142,10 @@ func processInputLine(uniqNumbers *numMap, pattern *regexp.Regexp, digits string
 // Handling connections
 func handleConn(uniqNumbers *numMap, digitsPattern *regexp.Regexp, c net.Conn, numConn *numConn) {
 	if numConn.Value() >= config.ClientsLimit() {
-		c.Write([]byte("Too many concurrent connections" + "\n"))
+		_, err := c.Write([]byte("Too many concurrent connections" + "\n"))
+		if err != nil {
+			log.Println(err)
+		}
 		c.Close()
 		return
 	} else {
