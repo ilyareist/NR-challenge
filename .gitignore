@@ -1,0 +1,7 @@
+.envrc
+bin/
+/vendor/
+.idea/
+*.swp
+*.go.orig
+coverage.out
