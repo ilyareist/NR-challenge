@@ -12,7 +12,7 @@ func init() {
 	pflag.String("listen.addr", "localhost:4000", "")
 	pflag.String("log.name", "numbers.log", "")
 	pflag.Int("report.int", 10, "")
-	pflag.Int("max.conn", 2, "")
+	pflag.Int("max.conn", 5, "")
 	_ = vp.BindPFlags(pflag.CommandLine)
 	pflag.Parse()
 }

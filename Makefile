@@ -9,4 +9,5 @@ lint:
 .PHONY: test
 test:
 	go run cmd/challenge/server.go &
+	sleep 2
 	go test -race -v ./cmd/challenge/...

@@ -50,7 +50,12 @@ func main() {
 	// Checking if app should be terminated
 	go func() {
 		<-terminate
-		listener.Close()
+		// Checking if all active connections are closed:
+		for {
+			if connections.Value() == 0 {
+				listener.Close()
+			}
+		}
 	}()
 
 	// numbers pattern to check
@@ -61,11 +66,13 @@ func main() {
 		if isTerminated() {
 			break
 		}
+
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Print(err)
 			continue
 		}
+
 		go handleConn(&numbers, patternNumbers, conn, &connections)
 	}
 }
@@ -128,24 +135,37 @@ func updateReport(uniqNumbers *numMap) {
 
 // Function checkNumbers checks valid numbers
 // Also responsible for "terminate" input line.
-func checkNumbers(uniqNumbers *numMap, pattern *regexp.Regexp, digits string, c net.Conn) {
+func checkNumbers(uniqNumbers *numMap, pattern *regexp.Regexp, digits string, c net.Conn, numConn *numConn) {
+	if isTerminated() {
+		closeConnection(c)
+		numConn.Dec()
+	}
 	if pattern.MatchString(digits) {
 		uniqNumbers.Inc(digits)
 		if uniqNumbers.Value(digits) == 1 {
-			data <- digits
+			select {
+			case <-data:
+				closeConnection(c)
+			default:
+				data <- digits
+			}
 		}
 	} else {
 		if digits == "terminate" {
-			close(terminate)
 			fmt.Println("Terminating...")
+			closeConnection(c)
+			close(terminate)
 		}
-
-		c.Close()
+		closeConnection(c)
 	}
 }
 
 // Handling connections
 func handleConn(uniqNumbers *numMap, digitsPattern *regexp.Regexp, c net.Conn, numConn *numConn) {
+	go func() {
+		<-terminate
+		c.Close()
+	}()
 	if numConn.Value() >= config.ClientsLimit() {
 		_, err := c.Write([]byte("Too many concurrent connections" + "\n"))
 		if err != nil {
@@ -158,16 +178,16 @@ func handleConn(uniqNumbers *numMap, digitsPattern *regexp.Regexp, c net.Conn, n
 		if !isTerminated() {
 			input := bufio.NewScanner(c)
 			for input.Scan() {
-				go checkNumbers(uniqNumbers, digitsPattern, input.Text(), c)
+				go checkNumbers(uniqNumbers, digitsPattern, input.Text(), c, numConn)
 				if isTerminated() {
-					c.Close()
+					closeConnection(c)
 					numConn.Dec()
 					return
 				}
 			}
 		}
 		numConn.Dec()
-		c.Close()
+		closeConnection(c)
 	}
 }
 
@@ -202,4 +222,11 @@ func (c *numMap) Value(number string) int {
 	x := c.numMap[number]
 	c.mu.Unlock()
 	return x
+}
+
+func closeConnection(c net.Conn) {
+	if c != nil {
+		c.Close()
+		c = nil
+	}
 }
