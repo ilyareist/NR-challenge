@@ -8,4 +8,5 @@ lint:
 
 .PHONY: test
 test:
-	go test -race -v -covermode=atomic -coverpkg=./internal/...,./pkg/... -coverprofile=coverage.out ./tests/... ./pkg/...
+	go run cmd/challenge/server.go &
+	go test -race -v ./cmd/challenge/...

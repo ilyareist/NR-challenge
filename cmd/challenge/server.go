@@ -42,16 +42,21 @@ func main() {
 		numMap: make(map[string]int),
 	}
 
-	go updateStats(&numbers)
+	// Starting updatingReport routine
+	go updateReport(&numbers)
+	// Starting writing to the log file routine
 	go writeToLogFile(config.LogName())
 
+	// Checking if app should be terminated
 	go func() {
 		<-terminate
 		listener.Close()
 	}()
 
+	// numbers pattern to check
 	patternNumbers := regexp.MustCompile(`^[0-9]{9,9}$`)
 
+	// handling new connections
 	for {
 		if isTerminated() {
 			break
@@ -93,8 +98,8 @@ func writeToLogFile(fileName string) {
 	f.Close()
 }
 
-// updateStats prints a report to the STDOUT every config.ReportInt() period
-func updateStats(uniqNumbers *numMap) {
+// updateReport prints a report to the STDOUT every config.ReportInt() period
+func updateReport(uniqNumbers *numMap) {
 	prevUniqTotal := 0
 	prevDupTotal := 0
 	for {
@@ -121,9 +126,9 @@ func updateStats(uniqNumbers *numMap) {
 	}
 }
 
-// Function processInputLine checks valid numbers
-// also responsible for "terminate" input line.
-func processInputLine(uniqNumbers *numMap, pattern *regexp.Regexp, digits string, c net.Conn) {
+// Function checkNumbers checks valid numbers
+// Also responsible for "terminate" input line.
+func checkNumbers(uniqNumbers *numMap, pattern *regexp.Regexp, digits string, c net.Conn) {
 	if pattern.MatchString(digits) {
 		uniqNumbers.Inc(digits)
 		if uniqNumbers.Value(digits) == 1 {
@@ -153,7 +158,7 @@ func handleConn(uniqNumbers *numMap, digitsPattern *regexp.Regexp, c net.Conn, n
 		if !isTerminated() {
 			input := bufio.NewScanner(c)
 			for input.Scan() {
-				go processInputLine(uniqNumbers, digitsPattern, input.Text(), c)
+				go checkNumbers(uniqNumbers, digitsPattern, input.Text(), c)
 				if isTerminated() {
 					c.Close()
 					numConn.Dec()
